@@ -22,7 +22,14 @@ function createWindow() {
   const load = (url: string) => mainWindow!.loadURL(url);
   load(primaryUrl);
 
-  mainWindow.webContents.on('did-fail-load', () => {
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, _errorDescription, validatedURL, isMainFrame) => {
+    if (errorCode === -3 || !isMainFrame) {
+      console.debug(`did-fail-load ignored (code: ${errorCode}, url: ${validatedURL}, mainFrame: ${isMainFrame})`);
+      return;
+    }
+
+    console.error(`did-fail-load (code: ${errorCode}, url: ${validatedURL})`);
+
     if (currentUrl === primaryUrl) {
       currentUrl = fallbackUrl;
       load(currentUrl);
