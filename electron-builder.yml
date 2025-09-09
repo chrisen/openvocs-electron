@@ -1,0 +1,12 @@
+appId: com.openvocs.electron
+productName: openvocs-electron
+files:
+  - dist/**
+  - resources/**
+directories:
+  buildResources: resources
+linux:
+  target:
+    - AppImage
+    - deb
+  icon: resources/icon.svg
