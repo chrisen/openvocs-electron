@@ -1,0 +1,26 @@
+{
+  "name": "openvocs-electron",
+  "version": "0.1.0",
+  "description": "Minimal Electron kiosk app for OpenVocs",
+  "main": "dist/main.js",
+  "author": {
+    "name": "OpenVocs",
+    "email": "dev@example.com"
+  },
+  "homepage": "https://example.com",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "npm run build && NODE_ENV=development electron .",
+    "dev": "NODE_ENV=development electron .",
+    "package": "npm run build && electron-builder --linux AppImage deb",
+    "test": "echo 'no tests'"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "electron": "^38.0.0",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.5.4"
+  }
+}
