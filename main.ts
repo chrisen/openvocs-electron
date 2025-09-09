@@ -33,12 +33,19 @@ function createWindow() {
   });
 
   if (isDev) {
-    globalShortcut.register('Control+Alt+D', () => {
+    const accelerator = 'Control+Alt+D';
+    const registered = globalShortcut.register(accelerator, () => {
       if (mainWindow) {
         mainWindow.setKiosk(false);
         mainWindow.webContents.openDevTools({ mode: 'detach' });
       }
     });
+
+    if (!registered) {
+      console.error(`Failed to register global shortcut ${accelerator}; it may already be in use.`);
+    } else {
+      console.log(`Registered global shortcut ${accelerator}`);
+    }
   }
 
   mainWindow.on('closed', () => {
