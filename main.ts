@@ -2,9 +2,19 @@ import { app, BrowserWindow, session, globalShortcut } from 'electron';
 import path from 'node:path';
 
 const isDev = process.env.NODE_ENV === 'development';
-const primaryUrl = 'https://192.168.1.10/app/vocs/';
-const fallbackUrl = 'https://192.168.1.11/app/vocs/';
-let currentUrl = primaryUrl;
+const prodPrimaryUrl = process.env.PROD_URL || 'https://192.168.1.10/app/vocs/';
+const prodBackupUrl = process.env.PROD_BACKUP_URL || prodPrimaryUrl;
+const testPrimaryUrl = process.env.TEST_URL || 'https://192.168.1.11/app/vocs/';
+const testBackupUrl = process.env.TEST_BACKUP_URL || testPrimaryUrl;
+
+type Environment = 'prod' | 'test';
+let env: Environment = 'prod';
+let useBackup = false;
+
+const currentUrl = () =>
+  env === 'prod'
+    ? (useBackup ? prodBackupUrl : prodPrimaryUrl)
+    : (useBackup ? testBackupUrl : testPrimaryUrl);
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
@@ -20,7 +30,7 @@ function createWindow() {
   });
 
   const load = (url: string) => mainWindow!.loadURL(url);
-  load(primaryUrl);
+  load(currentUrl());
 
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, _errorDescription, validatedURL, isMainFrame) => {
     if (errorCode === -3 || !isMainFrame) {
@@ -30,14 +40,27 @@ function createWindow() {
 
     console.error(`did-fail-load (code: ${errorCode}, url: ${validatedURL})`);
 
-    if (currentUrl === primaryUrl) {
-      currentUrl = fallbackUrl;
-      load(currentUrl);
+    if (!useBackup) {
+      useBackup = true;
+      load(currentUrl());
     } else {
-      currentUrl = primaryUrl;
-      setTimeout(() => load(currentUrl), 5000);
+      useBackup = false;
+      setTimeout(() => load(currentUrl()), 5000);
     }
   });
+
+  const toggleAccelerator = 'Control+Alt+Shift+T';
+  const toggleRegistered = globalShortcut.register(toggleAccelerator, () => {
+    if (mainWindow) {
+      env = env === 'prod' ? 'test' : 'prod';
+      useBackup = false;
+      load(currentUrl());
+    }
+  });
+
+  if (!toggleRegistered) {
+    console.error(`Failed to register global shortcut ${toggleAccelerator}; it may already be in use.`);
+  }
 
   if (isDev) {
     const accelerator = 'Control+Alt+D';
@@ -80,7 +103,12 @@ app.whenReady().then(() => {
 
 if (isDev) {
   app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
-    if (url.startsWith(primaryUrl) || url.startsWith(fallbackUrl)) {
+    if (
+      url.startsWith(prodPrimaryUrl) ||
+      url.startsWith(prodBackupUrl) ||
+      url.startsWith(testPrimaryUrl) ||
+      url.startsWith(testBackupUrl)
+    ) {
       event.preventDefault();
       callback(true);
     } else {

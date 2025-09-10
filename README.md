@@ -24,6 +24,19 @@ manually, ensure the environment variable is set:
 NODE_ENV=development electron .
 ```
 
+## Configuration
+
+The app loads its URLs from environment variables:
+
+- `PROD_URL` – production primary server (defaults to `https://192.168.1.10/app/vocs/`)
+- `PROD_BACKUP_URL` – production backup server (defaults to the value of `PROD_URL`)
+- `TEST_URL` – test primary server (defaults to `https://192.168.1.11/app/vocs/`)
+- `TEST_BACKUP_URL` – test backup server (defaults to the value of `TEST_URL`)
+
+At runtime you can press the hidden shortcut <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> to toggle
+between the production and test servers. If a load fails, the app automatically
+falls back to the backup server for the current environment.
+
 ## Build (AppImage + deb)
 
 ```bash
