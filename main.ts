@@ -10,6 +10,10 @@ const testBackupUrl = process.env.TEST_BACKUP_URL || testPrimaryUrl;
 type Environment = 'prod' | 'test';
 let env: Environment = 'prod';
 let useBackup = false;
+const offlineFile = path.join(__dirname, '..', 'resources', 'offline.html');
+let failCount = 0;
+const failThreshold = 3;
+let retryTimer: NodeJS.Timeout | null = null;
 
 const currentUrl = () =>
   env === 'prod'
@@ -30,6 +34,7 @@ function createWindow() {
   });
 
   const load = (url: string) => mainWindow!.loadURL(url);
+  const loadOffline = () => mainWindow!.loadFile(offlineFile);
   load(currentUrl());
 
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, _errorDescription, validatedURL, isMainFrame) => {
@@ -39,6 +44,20 @@ function createWindow() {
     }
 
     console.error(`did-fail-load (code: ${errorCode}, url: ${validatedURL})`);
+    failCount++;
+
+    if (failCount >= failThreshold) {
+      useBackup = false;
+      loadOffline();
+      if (!retryTimer) {
+        retryTimer = setInterval(() => {
+          if (mainWindow) {
+            load(currentUrl());
+          }
+        }, 30000);
+      }
+      return;
+    }
 
     if (!useBackup) {
       useBackup = true;
@@ -46,6 +65,17 @@ function createWindow() {
     } else {
       useBackup = false;
       setTimeout(() => load(currentUrl()), 5000);
+    }
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    const url = mainWindow!.webContents.getURL();
+    if (!url.startsWith('file://')) {
+      failCount = 0;
+      if (retryTimer) {
+        clearInterval(retryTimer);
+        retryTimer = null;
+      }
     }
   });
 
