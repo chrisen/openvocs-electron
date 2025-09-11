@@ -37,6 +37,10 @@ At runtime you can press the hidden shortcut <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd
 between the production and test servers. If a load fails, the app automatically
 falls back to the backup server for the current environment.
 
+Use <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>D</kbd> to exit kiosk mode and open the
+Electron developer tools. This works in all environments and lets you inspect
+the app when issues occur in production.
+
 ## Build (AppImage + deb)
 
 ```bash
