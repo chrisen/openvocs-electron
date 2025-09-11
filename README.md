@@ -41,8 +41,11 @@ Use <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>D</kbd> to exit kiosk mode and open the
 Electron developer tools. This works in all environments and lets you inspect
 the app when issues occur in production.
 
-## Build (AppImage + deb)
+## Build (AppImage, deb, rpm)
 
 ```bash
 npm run package
 ```
+
+The build script produces AppImage, deb, and rpm packages. The rpm output can
+be used on rpm-based distributions like Fedora or openSUSE.

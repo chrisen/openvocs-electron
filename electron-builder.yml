@@ -9,4 +9,5 @@ linux:
   target:
     - AppImage
     - deb
+    - rpm
   icon: resources/icon.svg

@@ -13,7 +13,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "npm run build && NODE_ENV=development electron .",
     "dev": "NODE_ENV=development electron .",
-    "package": "npm run build && electron-builder --linux AppImage deb",
+    "package": "npm run build && electron-builder --linux AppImage deb rpm",
     "test": "echo 'no tests'"
   },
   "dependencies": {},
