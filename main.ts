@@ -1,5 +1,6 @@
 import { app, BrowserWindow, session, globalShortcut } from 'electron';
 import path from 'node:path';
+import os from 'node:os';
 
 const isDev = process.env.NODE_ENV === 'development';
 const prodPrimaryUrl = process.env.PROD_URL || 'https://192.168.1.10/app/vocs/';
@@ -15,10 +16,15 @@ let failCount = 0;
 const failThreshold = 3;
 let retryTimer: NodeJS.Timeout | null = null;
 
-const currentUrl = () =>
-  env === 'prod'
-    ? (useBackup ? prodBackupUrl : prodPrimaryUrl)
-    : (useBackup ? testBackupUrl : testPrimaryUrl);
+const hostnameParam = `keysetname=${encodeURIComponent(os.hostname())}`;
+const currentUrl = () => {
+  const base =
+    env === 'prod'
+      ? (useBackup ? prodBackupUrl : prodPrimaryUrl)
+      : (useBackup ? testBackupUrl : testPrimaryUrl);
+  const separator = base.includes('?') ? '&' : '?';
+  return `${base}${separator}${hostnameParam}`;
+};
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
