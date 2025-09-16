@@ -3,6 +3,10 @@ import path from 'node:path';
 import os from 'node:os';
 
 const isDev = process.env.NODE_ENV === 'development';
+const allowSelfSignedCertificates =
+  process.env.ALLOW_SELF_SIGNED_CERTS === undefined
+    ? true
+    : process.env.ALLOW_SELF_SIGNED_CERTS !== 'false';
 const prodPrimaryUrl = process.env.PROD_URL || 'https://192.168.1.10/app/vocs/';
 const prodBackupUrl = process.env.PROD_BACKUP_URL || prodPrimaryUrl;
 const testPrimaryUrl = process.env.TEST_URL || 'https://192.168.1.11/app/vocs/';
@@ -39,8 +43,20 @@ function createWindow() {
     }
   });
 
-  const load = (url: string) => mainWindow!.loadURL(url);
-  const loadOffline = () => mainWindow!.loadFile(offlineFile);
+  const load = (url: string) => {
+    if (!mainWindow) {
+      console.warn(`Skipping load for ${url} because the window is gone.`);
+      return;
+    }
+    mainWindow.loadURL(url);
+  };
+  const loadOffline = () => {
+    if (!mainWindow) {
+      console.warn('Skipping offline page load because the window is gone.');
+      return;
+    }
+    mainWindow.loadFile(offlineFile);
+  };
   load(currentUrl());
 
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, _errorDescription, validatedURL, isMainFrame) => {
@@ -70,12 +86,19 @@ function createWindow() {
       load(currentUrl());
     } else {
       useBackup = false;
-      setTimeout(() => load(currentUrl()), 5000);
+      setTimeout(() => {
+        if (mainWindow) {
+          load(currentUrl());
+        }
+      }, 5000);
     }
   });
 
   mainWindow.webContents.on('did-finish-load', () => {
-    const url = mainWindow!.webContents.getURL();
+    const url = mainWindow?.webContents.getURL();
+    if (!url) {
+      return;
+    }
     if (!url.startsWith('file://')) {
       failCount = 0;
       if (retryTimer) {
@@ -112,6 +135,10 @@ function createWindow() {
   }
 
   mainWindow.on('closed', () => {
+    if (retryTimer) {
+      clearInterval(retryTimer);
+      retryTimer = null;
+    }
     mainWindow = null;
   });
 }
@@ -134,7 +161,7 @@ app.whenReady().then(() => {
   });
 });
 
-if (isDev) {
+if (allowSelfSignedCertificates) {
   app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
     if (
       url.startsWith(prodPrimaryUrl) ||
