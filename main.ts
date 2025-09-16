@@ -1,35 +1,31 @@
 import { app, BrowserWindow, session, globalShortcut } from 'electron';
 import path from 'node:path';
-import os from 'node:os';
 
-const isDev = process.env.NODE_ENV === 'development';
 const allowSelfSignedCertificates =
   process.env.ALLOW_SELF_SIGNED_CERTS === undefined
     ? true
     : process.env.ALLOW_SELF_SIGNED_CERTS !== 'false';
-const prodPrimaryUrl = process.env.PROD_URL || 'https://192.168.1.10/app/vocs/';
-const prodBackupUrl = process.env.PROD_BACKUP_URL || prodPrimaryUrl;
-const testPrimaryUrl = process.env.TEST_URL || 'https://192.168.1.11/app/vocs/';
-const testBackupUrl = process.env.TEST_BACKUP_URL || testPrimaryUrl;
-
-type Environment = 'prod' | 'test';
-let env: Environment = 'prod';
-let useBackup = false;
+const appUrl = 'https://10.0.0.10/app/vocs/';
 const offlineFile = path.join(__dirname, '..', 'resources', 'offline.html');
-let failCount = 0;
-const failThreshold = 3;
+
+let mainWindow: BrowserWindow | null = null;
 let retryTimer: NodeJS.Timeout | null = null;
 
-const hostnameParam = `keysetname=${encodeURIComponent(os.hostname())}`;
-const currentUrl = () => {
-  const base =
-    env === 'prod'
-      ? (useBackup ? prodBackupUrl : prodPrimaryUrl)
-      : (useBackup ? testBackupUrl : testPrimaryUrl);
-  const separator = base.includes('?') ? '&' : '?';
-  return `${base}${separator}${hostnameParam}`;
-};
-let mainWindow: BrowserWindow | null = null;
+function loadApp() {
+  if (!mainWindow) {
+    console.warn('Skipping app load because the window is gone.');
+    return;
+  }
+  mainWindow.loadURL(appUrl);
+}
+
+function loadOffline() {
+  if (!mainWindow) {
+    console.warn('Skipping offline page load because the window is gone.');
+    return;
+  }
+  mainWindow.loadFile(offlineFile);
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -43,83 +39,42 @@ function createWindow() {
     }
   });
 
-  const load = (url: string) => {
-    if (!mainWindow) {
-      console.warn(`Skipping load for ${url} because the window is gone.`);
-      return;
-    }
-    mainWindow.loadURL(url);
-  };
-  const loadOffline = () => {
-    if (!mainWindow) {
-      console.warn('Skipping offline page load because the window is gone.');
-      return;
-    }
-    mainWindow.loadFile(offlineFile);
-  };
-  load(currentUrl());
+  loadApp();
 
-  mainWindow.webContents.on('did-fail-load', (_event, errorCode, _errorDescription, validatedURL, isMainFrame) => {
-    if (errorCode === -3 || !isMainFrame) {
-      console.debug(`did-fail-load ignored (code: ${errorCode}, url: ${validatedURL}, mainFrame: ${isMainFrame})`);
-      return;
-    }
+  mainWindow.webContents.on(
+    'did-fail-load',
+    (_event, errorCode, _errorDescription, validatedURL, isMainFrame) => {
+      if (errorCode === -3 || !isMainFrame) {
+        console.debug(
+          `did-fail-load ignored (code: ${errorCode}, url: ${validatedURL}, mainFrame: ${isMainFrame})`
+        );
+        return;
+      }
 
-    console.error(`did-fail-load (code: ${errorCode}, url: ${validatedURL})`);
-    failCount++;
-
-    if (failCount >= failThreshold) {
-      useBackup = false;
+      console.error(`did-fail-load (code: ${errorCode}, url: ${validatedURL})`);
       loadOffline();
+
       if (!retryTimer) {
         retryTimer = setInterval(() => {
           if (mainWindow) {
-            load(currentUrl());
+            loadApp();
           }
         }, 30000);
       }
-      return;
     }
-
-    if (!useBackup) {
-      useBackup = true;
-      load(currentUrl());
-    } else {
-      useBackup = false;
-      setTimeout(() => {
-        if (mainWindow) {
-          load(currentUrl());
-        }
-      }, 5000);
-    }
-  });
+  );
 
   mainWindow.webContents.on('did-finish-load', () => {
     const url = mainWindow?.webContents.getURL();
     if (!url) {
       return;
     }
-    if (!url.startsWith('file://')) {
-      failCount = 0;
-      if (retryTimer) {
-        clearInterval(retryTimer);
-        retryTimer = null;
-      }
+    if (!url.startsWith('file://') && retryTimer) {
+      clearInterval(retryTimer);
+      retryTimer = null;
     }
   });
 
-  const toggleAccelerator = 'Control+Alt+Shift+T';
-  const toggleRegistered = globalShortcut.register(toggleAccelerator, () => {
-    if (mainWindow) {
-      env = env === 'prod' ? 'test' : 'prod';
-      useBackup = false;
-      load(currentUrl());
-    }
-  });
-
-  if (!toggleRegistered) {
-    console.error(`Failed to register global shortcut ${toggleAccelerator}; it may already be in use.`);
-  }
   const accelerator = 'Control+Alt+D';
   const registered = globalShortcut.register(accelerator, () => {
     if (mainWindow) {
@@ -163,12 +118,7 @@ app.whenReady().then(() => {
 
 if (allowSelfSignedCertificates) {
   app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
-    if (
-      url.startsWith(prodPrimaryUrl) ||
-      url.startsWith(prodBackupUrl) ||
-      url.startsWith(testPrimaryUrl) ||
-      url.startsWith(testBackupUrl)
-    ) {
+    if (url.startsWith(appUrl)) {
       event.preventDefault();
       callback(true);
     } else {
