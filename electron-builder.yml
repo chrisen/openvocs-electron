@@ -11,3 +11,6 @@ linux:
     - deb
     - rpm
   icon: resources/icon.svg
+rpm:
+  depends:
+    - libXtst6
