@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, session } from 'electron';
+import { app, BrowserWindow, globalShortcut, screen, session } from 'electron';
 
 type MicrophonePermissionDetails =
   | Electron.MediaAccessPermissionRequest
@@ -86,7 +86,78 @@ const createWindow = async (): Promise<void> => {
     },
   });
 
+  const { webContents } = mainWindow;
+  let overlayCssInjected = false;
+
+  const updateResolutionOverlay = async (): Promise<void> => {
+    if (!mainWindow || mainWindow.isDestroyed() || webContents.isDestroyed()) {
+      return;
+    }
+
+    const { width, height } = screen.getPrimaryDisplay().size;
+    const overlayText = `${width}×${height}`;
+
+    try {
+      if (!overlayCssInjected) {
+        await webContents.insertCSS(`
+          #resolution-overlay {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            padding: 6px 12px;
+            background-color: rgba(0, 0, 0, 0.75);
+            color: #ffffff;
+            font-family: sans-serif;
+            font-size: 14px;
+            border-radius: 4px;
+            z-index: 2147483647;
+            pointer-events: none;
+          }
+        `);
+        overlayCssInjected = true;
+      }
+
+      await webContents.executeJavaScript(
+        `
+          (() => {
+            const text = ${JSON.stringify(overlayText)};
+            let overlay = document.getElementById('resolution-overlay');
+
+            if (!overlay) {
+              overlay = document.createElement('div');
+              overlay.id = 'resolution-overlay';
+              document.body.appendChild(overlay);
+            }
+
+            overlay.textContent = text;
+          })();
+        `,
+        true,
+      );
+    } catch (error) {
+      console.error('Failed to update resolution overlay', error);
+    }
+  };
+
+  const handleDidFinishLoad = (): void => {
+    void updateResolutionOverlay();
+  };
+
+  webContents.on('did-finish-load', handleDidFinishLoad);
+
+  const handleDisplayMetricsChanged = (): void => {
+    void updateResolutionOverlay();
+  };
+
+  screen.on('display-metrics-changed', handleDisplayMetricsChanged);
+
   mainWindow.on('closed', () => {
+    screen.removeListener('display-metrics-changed', handleDisplayMetricsChanged);
+
+    if (!webContents.isDestroyed()) {
+      webContents.removeListener('did-finish-load', handleDidFinishLoad);
+    }
+
     mainWindow = null;
   });
 
